@@ -1,5 +1,6 @@
 from django.db import models
 from locations.models import Location
+from rapidsms.contrib.scheduler.models import EventSchedule
 from django.contrib.auth.models import User, UserManager
 from django.utils.translation import ugettext as _
 from django.utils.datastructures import SortedDict
@@ -66,7 +67,8 @@ class HealthProfessional(User):
                     result['health_prof_id'] = health_prof.id
                     result["full_name"] = "%s %s %s" % (health_prof.first_name,
                                                         health_prof.last_name, health_prof.grandfather_name)
-                    result['location'] = "%s %s" % (health_prof.location, health_prof.location.type)
+                    if health_prof.location:
+                        result['location'] = "%s %s" % (health_prof.location, health_prof.location.type)
                     result['phone_number'] = health_prof.phone_number
                     results.append(result)
             
@@ -74,9 +76,43 @@ class HealthProfessional(User):
         
 
 class MotherConnection(Connection):
+    PHONE_TYPE_CHOICES = (('Land line', 'Land line'), ('Mobile', 'Mobile'))
+    phone_type = models.CharField(max_length = 10, choices = PHONE_TYPE_CHOICES, null= True, blank= True)
         
-        class Meta:
-		verbose_name = "Mother Connection"
+    class Meta:
+        verbose_name = "Mother Connection"
+		
+
+def MotherConnection_post_save_handler(sender, **kwargs):
+
+    instance = kwargs['instance']
+    is_new_record = kwargs['created']
+    phone_number = instance.identity
+    mother = Mother.get_mother(phone_number)                
+
+    if is_new_record == True:
+        scheduled_date = Mother.get_scheduled_date(mother)
+        event_schedule = schedule_voice_call(scheduled_date.date_scheduled, phone_number)
+        
+        # add reference to ScheduledDate table
+        schedule = ScheduledDate.objects.filter(date_scheduled = scheduled_date.date_scheduled,
+                                 mother = mother)[0]
+        
+        schedule.event_schedule = event_schedule
+        schedule.save()
+        
+    else:
+        # try to update the phone (if changed) 
+        scheduled_date = ScheduledDate.objects.filter(mother = mother).order_by("-date_scheduled")[0]
+        event_schedule = scheduled_date.event_schedule
+        event_schedule.callback_kwargs['phone_number'] = phone_number
+        event_schedule.save()
+        
+        
+        
+    
+post_save.connect(MotherConnection_post_save_handler,
+                 sender=MotherConnection)
 
 
 class Mother(Contact):
@@ -91,7 +127,26 @@ class Mother(Contact):
     registered_by = models.ForeignKey(HealthProfessional, related_name="HealthProfessional", null=True, blank=True)
 
     def __unicode__(self):
-        return "%s %s" % (self.name, self.father_name)
+        return "%s %s" % (self.first_name, self.father_name)
+
+    def _get_phone_number(self):
+        return self.default_connection.identity
+
+    phone_number = property(_get_phone_number)
+
+    @classmethod
+    def get_mother(self, phone_number):
+        mothers = Mother.objects.all()
+        mother = filter(lambda mothers: mothers.default_connection and
+                        mothers.default_connection.identity == phone_number,  mothers)[0]
+        return mother
+
+   
+    @classmethod
+    def get_scheduled_date(self, mother):
+        scheduled_date = ScheduledDate.objects.filter(mother = mother).order_by("-date_scheduled")[0]
+        return scheduled_date
+        
 
     TITLE = _(u"Mothers")
 
@@ -150,22 +205,14 @@ pre_save.connect(Mother_pre_save_handler,
 
 
 def Mother_post_save_handler(sender, **kwargs):
-
     instance = kwargs['instance']
     is_new_record = kwargs['created']
-
     if is_new_record == True:
-        # take elapsed period in week
         elapsed_week = instance.elapsed_period
         today = date.today()
-        #phone_number = instance.default_connection.identity
-        phone_number = "1234"
-
-        scheduled_date = get_scheduled_date(elapsed_week, today, phone_number)
-
+        scheduled_date = get_scheduled_date(elapsed_week, today)
         schedule = ScheduledDate(date_scheduled = scheduled_date,
                                  mother = instance)
-
         schedule.save()
     
 post_save.connect(Mother_post_save_handler,
@@ -200,27 +247,31 @@ class MotherStatus(models.Model):
         verbose_name_plural = "Mother Status"
 
 
-##def MotherStatus_post_save_handler(sender, **kwargs):
-##
-##    instance = kwargs['instance']
-##
-##    # take elapsed period in week
-##    elapsed_week = instance.elapsed_period
-##    today = date.today()
-##
-##    scheduled_date = get_scheduled_date(elapsed_week, today)
-##
-##    schedule = ScheduledDate(date_scheduled = scheduled_date,
-##                             mother = instance)
-##
-##    schedule.save()
-##    
-##post_save.connect(MotherStatus_post_save_handler,
-##                 sender=MotherStatus)
+def MotherStatus_post_save_handler(sender, **kwargs):
+    instance = kwargs['instance']
+    is_new_record = kwargs['created']
+    today = date.today()
+    is_registered_today = instance.mother.date_registered.date() == today
+    
+    if is_new_record == True and is_registered_today != True:
+        phone_number = instance.mother.default_connection.identity
+        elapsed_week = instance.mother.elapsed_period
+        scheduled_date = get_scheduled_date(elapsed_week, today)
+        event_schedule = schedule_voice_call(scheduled_date, phone_number)
+        
+        schedule = ScheduledDate(date_scheduled = scheduled_date,
+                                 event_schedule = event_schedule,
+                                 mother = instance.mother)
+        schedule.save()
+
+    
+post_save.connect(MotherStatus_post_save_handler,
+                 sender=MotherStatus)
 
 
 class ScheduledDate(models.Model):
     date_scheduled = models.DateField()
+    event_schedule = models.ForeignKey(EventSchedule, null=True, blank = True)
     mother = models.ForeignKey(Mother)
     mother_has_visited = models.BooleanField()
     

@@ -10,7 +10,7 @@ from tables import *
 from django.core.paginator import Paginator, InvalidPage, EmptyPage
 
 from django.utils.translation import ugettext as _
-
+from datetime import date
 
 @login_required
 @define_scope
@@ -18,6 +18,24 @@ def index(request, scope):
     mothers = scope.mothers()
     health_centers = scope.health_centers()
     health_professionals = scope.health_professionals()
+    schedules = ScheduledDate.objects.filter(mother__in = mothers,
+                                             mother_has_visited = False)
+    
+    # list today's schedules
+    today_schedules = filter(lambda schedules:
+                             schedules.date_scheduled == date.today(),
+                             schedules)
+    # this weeks's schedules
+    
+
+    # mother's who missed schedules
+    missed_schedules = filter(lambda schedules:
+                             schedules.date_scheduled < date.today(),
+                             schedules)
+    
+    # mothers who don't respond to voice call
+    
+    
     return render_to_response('index.html',
                               {'mothers': mothers,
                                'total_mothers': len(mothers),

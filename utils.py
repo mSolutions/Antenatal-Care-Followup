@@ -8,16 +8,18 @@ import pygsm
 
 from asterisk.manager import Manager
 
-def get_scheduled_date(elapsed_week, last_visit_date, phone_number):
+def get_scheduled_date(elapsed_week, last_visit_date):
     scheduled_date = last_visit_date +  timedelta(weeks = 4)
-    schedule_voice_call(scheduled_date, phone_number)
+    #schedule_voice_call(scheduled_date, phone_number)
     return scheduled_date
-    
+
+
+
 
 def schedule_voice_call(scheduled_date, phone_number):
  
     #EventSchedule.objects.all().delete()
-    EventSchedule.objects.create(callback='followup.utils.voice_call_generator',
+    return EventSchedule.objects.create(callback='followup.utils.voice_call_generator',
                                     months=set([scheduled_date.month]),
                                     days_of_month=set([scheduled_date.day]),
                                     hours = set([11]),
@@ -64,49 +66,49 @@ def voice_call_generator(router, phone_number):
 
 ## Modified code to send sms using pygsm
 
-def send_text_message(reporters = None, message = None, reporters_messages = None):
+def send_text_message(mothers = None, message = None, mothers_messages = None):
 	
 	# mass SMS sender is used to send a message to a
-	# list of reporters.
+	# list of mothers.
 	
 	success = 0
-	reporter_received = []
-	reporter_not_received = []
+	mother_received = []
+	mother_not_received = []
 
-        # send personalized message reporters
-        # reporter_message is list of dictionary dictionary data type.
-        # the dictioanry has "reporter" and "message" keys
+        # send personalized message mothers
+        # mother_message is list of dictionary dictionary data type.
+        # the dictioanry has "mother" and "message" keys
         
-        if reporters_messages is not None:
-                for reporter_message in reporters_messages:
+        if mothers_messages is not None:
+                for mother_message in mothers_messages:
                         try:
-                                connection = reporter_message["reporter"].default_connection
-                                send_message(connection, reporter_message["message"])
+                                connection = mother_message["mother"].default_connection
+                                send_message(connection, mother_message["message"])
                                 success += 1
-                                reporter_received.append(reporter_message["reporter"])
+                                mother_received.append(mother_message["mother"])
                         except Exception, e:
                                 pass
 
-                for reporter_message in reporters_messages:
-                        if reporter_message["reporter"] not in reporter_received:
-                                reporter_not_received.append(reporter_message["reporter"])
+                for mother_message in mothers_messages:
+                        if mother_message["mother"] not in mother_received:
+                                mother_not_received.append(mother_message["mother"])
         
                 
         else:
-                # a message to list of reporters 
-                for reporter in reporters:
+                # a message to list of mothers 
+                for mother in mothers:
                         try:
-                                connection = reporter.default_connection
+                                connection = mother.default_connection
                                 send_message(connection, message)
                                 success += 1
-                                reporter_received.append(reporter)
+                                mother_received.append(mother)
                         except Exception, e:
                                 pass
                                 #print e
                 
-                reporter_not_received = filter(lambda reporters: reporters not in reporter_received, reporters)
+                mother_not_received = filter(lambda mothers: mothers not in mother_received, mothers)
                 
-        return (message, reporter_received, reporter_not_received)
+        return (message, mother_received, mother_not_received)
 
 
 
