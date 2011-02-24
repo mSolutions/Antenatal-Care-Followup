@@ -1,4 +1,8 @@
-{% extends "layout-split-2.html" %}
+{% extends "layout-split-2_local.html" %}
+
+{% load region_tags %}
+{% load tabs_tags %}
+{% load i18n %}
 
 
 {% block title %} Mother's Follow-up {% endblock %}
@@ -15,13 +19,12 @@
 {% endblock %}
 
 
-
 {% block left %}
 
 <div class="module">
 
 	<div>
-		<h3> Current Period Summary </h3>
+		<h3> Summary </h3>
 		
 		<a href="/mothers"><strong>{{ total_mothers }}</strong> Mothers </a> registered.<br/>
 		<a href="/centers"><strong>{{ total_centers }}</strong> Health Centers </a> registered<br/>
@@ -29,29 +32,63 @@
 		<a href="/health_profs"><strong>{{ total_hps }}</strong> Health professional{{ total_hps|pluralize }}</a> registered<br/>
 
 
-		</p>
+	
+	</div>	
+
+
+</div>
+
+
+<div class="module">
+
+	<div>
+		<h3> Missed Schedule </h3>
+		
+			
+	</div>	
+
+
+</div>
+
+
+<div class="module">
+
+	<div>
+		<h3> Mothers who don't respond to voice call </h3>
+		
+	
 		
 	</div>	
 
 
 </div>
 
-<h1> Mother's follow up </h1>
+{% endblock %} 
 
-<h2> Registers Mothers </h2>
-{% for mother in mothers %}
-	{{mother}} <br>
-{% endfor %}
+{% block right %}
 
-<h2> Registers Health centers </h2>
-{% for health_center in health_centers %}
-	{{health_center}} <br>
-{% endfor %}
 
-<h2> Registers Health professionals </h2>
-{% for health_professional  in health_professionals %}
-	{{health_professional}} <br>
-{% endfor %}
+<div class="module">
 
+	<div>
+		<h3> Today's Schedule </h3>
+		
+	
+		
+	</div>	
+
+
+</div>
+
+<div class="module">
+
+	<div>
+		<h3> This week's Schedule </h3>
+		
+
+	</div>	
+
+
+</div>
 
 {% endblock %} 
